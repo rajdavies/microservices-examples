@@ -13,7 +13,7 @@
  *
  */
 
-package io.fabric8.example.calculator.http;
+package io.fabric8.example.calculator.msg;
 
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.environment.se.WeldContainer;
@@ -30,13 +30,13 @@ public class Main {
 
             WeldContainer container = weld.initialize();
 
-            CalculatorHTTP calculatorHTTP = container.instance().select(CalculatorHTTP.class).get();
-            calculatorHTTP.run();
+            CalculatorMsg calculator = container.instance().select(CalculatorMsg.class).get();
+            calculator.run();
             waitUntilStop();
 
         } catch (Throwable e) {
             e.printStackTrace();
-            LOG.error("Failed to Start Calculator HTTP", e);
+            LOG.error("Failed to Start Calculator", e);
         }
 
     }

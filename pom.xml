@@ -98,6 +98,10 @@
         <maven.enforcer.plugin.version>1.4</maven.enforcer.plugin.version>
         <camel.hysterix.version>1.0.2</camel.hysterix.version>
 
+        <camel.version>2.16.0</camel.version>
+        <commons.math.verion>3.5</commons.math.verion>
+        <activemq.version>5.12.0</activemq.version>
+
 
         <activemq.container.port>6194</activemq.container.port>
         <activemq.service.port>6163</activemq.service.port>
@@ -117,9 +121,6 @@
         <collector.http.service.port>9191</collector.http.service.port>
 
 
-        <camel.version>2.16.0</camel.version>
-        <commons.math.verion>3.5</commons.math.verion>
-
         <docker.from>docker.io/fabric8/java-jboss-openjdk8-jdk</docker.from>
         <docker.image>${fabric8.dockerPrefix}${fabric8.dockerUser}${project.artifactId}:${project.version}
         </docker.image>
@@ -129,6 +130,7 @@
 
     <modules>
         <module>http</module>
+        <module>msg</module>
     </modules>
 
     <distributionManagement>
