@@ -16,58 +16,102 @@
 package io.fabric8.example.calculator.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.camel.CamelContext;
+import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.ProducerTemplate;
+import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.cdi.ContextName;
+import org.apache.camel.cdi.Uri;
 import org.apache.camel.component.metrics.routepolicy.MetricsRoutePolicyFactory;
-import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 
-public class CalculatorHTTP {
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
-    public static final int NUMBER_OF_ENTRIES = 100;
+@ApplicationScoped
+@ContextName("Calculator")
+public class CalculatorHTTP extends RouteBuilder implements Runnable {
 
-    public static void main(String[] args) throws Exception {
+    @Inject
+    @Uri("netty4-http:http://{{service:collector:localhost:8184}}/collector")
+    private Endpoint collectorService;
 
-        String stddevHost = System.getenv("STD_DEV_HTTP_SERVICE_HOST");
-        String stddevPort = System.getenv("STD_DEV_HTTP_SERVICE_PORT");
-        String collectorService = "http://localhost:8180/collector";
-        CamelContext camelContext = new DefaultCamelContext();
-        camelContext.addRoutePolicyFactory(new MetricsRoutePolicyFactory());
-        ProducerTemplate producerTemplate = camelContext.createProducerTemplate();
-        camelContext.setStreamCaching(false);
-        camelContext.start();
+    @Inject
+    @Uri("netty4-http:http://{{service:variance:localhost:8182}}/variance")
+    private Endpoint varianceService;
 
-        RandomGenerator rg = new JDKRandomGenerator();
-        double[] array = new double[NUMBER_OF_ENTRIES];
-        ObjectMapper objectMapper = new ObjectMapper();
+    @Inject
+    @Uri("netty4-http:http://{{service:std-dev:localhost:8183}}/std-dev")
+    private Endpoint stdDevService;
 
-        while (true) {
-            try {
+    @Inject
+    @Uri("netty4-http:http://{{service:qs-cdi-camel-jetty:localhost:8080}}/camel/hello?keepAlive=false&disconnect=true")
+    private Endpoint httpEndpoint;
 
-                for (int i = 0; i < array.length; i++) {
-                    array[i] = rg.nextDouble();
-                }
+    public static final int NUMBER_OF_ENTRIES = 2;
+    private Executor executor = Executors.newSingleThreadExecutor();
 
-                final String body = objectMapper.writeValueAsString(array);
-                Exchange exchange = producerTemplate.request(stddevService, new Processor() {
-                    @Override
-                    public void process(Exchange exchange) throws Exception {
-                        exchange.getIn().setHeader(Exchange.HTTP_METHOD, "POST");
-                        exchange.getIn().setBody(body);
+    public void run() {
+
+        try {
+            System.err.println("RUNNING");
+            System.err.println(" httpEndpoint " + httpEndpoint);
+            System.err.println(" STD_DEV " + stdDevService);
+            System.err.println(" VARIANCE " + varianceService);
+            System.err.println(" COLLECTOR " + collectorService);
+
+            getContext().addRoutePolicyFactory(new MetricsRoutePolicyFactory());
+            ProducerTemplate producerTemplate = getContext().createProducerTemplate();
+
+            RandomGenerator rg = new JDKRandomGenerator();
+            double[] array = new double[NUMBER_OF_ENTRIES];
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            while (true) {
+                try {
+                    for (int i = 0; i < array.length; i++) {
+                        array[i] = rg.nextDouble();
                     }
-                });
+                    final String body = objectMapper.writeValueAsString(array);
+                    Exchange exchange = producerTemplate.send("direct:start", new Processor() {
+                        @Override
+                        public void process(Exchange exchange) throws Exception {
+                            exchange.getIn().setHeader(Exchange.HTTP_METHOD, "POST");
+                            exchange.getIn().setBody(body);
+                        }
+                    });
 
-                System.out.println("EXCHANGE " + exchange.getOut().getBody(String.class));
-
-                producerTemplate.sendBody(collectorService, "finished");
-
-            } catch (Throwable e) {
-                e.printStackTrace();
-                Thread.sleep(5000);
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                    sleep(5000);
+                }
             }
+
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void configure() throws Exception {
+        onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
+        from("direct:start")
+            .multicast()
+            .parallelProcessing().timeout(500).to(stdDevService, varianceService)
+            .end().setBody(body().append("HTTP FINISHED")).to(collectorService);
+    }
+
+    private void sleep(int time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }
+
+

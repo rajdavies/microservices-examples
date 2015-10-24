@@ -92,7 +92,7 @@
         <maven.surefire.plugin.version>2.17</maven.surefire.plugin.version>
         <jube.version>2.2.0</jube.version>
         <junit.version>4.12</junit.version>
-        <fabric8.version>2.2.54</fabric8.version>
+        <fabric8.version>2.2.55-SNAPSHOT</fabric8.version>
         <fabric8.release.version>${fabric8.version}</fabric8.release.version>
         <maven.require.version>3.1.1</maven.require.version>
         <maven.enforcer.plugin.version>1.4</maven.enforcer.plugin.version>
@@ -104,20 +104,21 @@
         <amqbroker.container.port>7162</amqbroker.container.port>
         <amqbroker.service.port>7163</amqbroker.service.port>
 
-        <stddev.http.container.port>80</stddev.http.container.port>
-        <stddev.http.service.port>80</stddev.http.service.port>
+        <stddev.http.container.port>8183</stddev.http.container.port>
+        <stddev.http.service.port>9191</stddev.http.service.port>
 
-        <variance.http.container.port>80</variance.http.container.port>
-        <variance.http.service.port>80</variance.http.service.port>
+        <variance.http.container.port>8182</variance.http.container.port>
+        <variance.http.service.port>9191</variance.http.service.port>
 
-        <calculator.http.container.port>80</calculator.http.container.port>
-        <calculator.http.service.port>80</calculator.http.service.port>
+        <calculator.http.container.port>8181</calculator.http.container.port>
+        <calculator.http.service.port>9191</calculator.http.service.port>
 
-        <collector.http.container.port>80</collector.http.container.port>
-        <collector.http.service.port>80</collector.http.service.port>
+        <collector.http.container.port>8184</collector.http.container.port>
+        <collector.http.service.port>9191</collector.http.service.port>
 
 
         <camel.version>2.16.0</camel.version>
+        <commons.math.verion>3.5</commons.math.verion>
 
         <docker.from>docker.io/fabric8/java-jboss-openjdk8-jdk</docker.from>
         <docker.image>${fabric8.dockerPrefix}${fabric8.dockerUser}${project.artifactId}:${project.version}
@@ -293,6 +294,12 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>org.apache.camel</groupId>
+                <artifactId>camel-core</artifactId>
+                <version>${camel.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.jboss.arquillian.junit</groupId>
                 <artifactId>arquillian-junit-container</artifactId>

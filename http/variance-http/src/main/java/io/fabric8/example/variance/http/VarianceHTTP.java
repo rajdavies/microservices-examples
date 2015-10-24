@@ -15,41 +15,23 @@
  */
 package io.fabric8.example.variance.http;
 
-import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.metrics.routepolicy.MetricsRoutePolicyFactory;
-import org.apache.camel.impl.DefaultCamelContext;
+import org.apache.camel.cdi.ContextName;
 
-public class VarianceHTTP {
+import javax.inject.Inject;
 
-    public static void main(String[] args) throws Exception {
+@ContextName("varianceCamel")
+public class VarianceHTTP extends RouteBuilder {
 
-        final Processor processor = new VarianceProcessor();
-        CamelContext camelContext = new DefaultCamelContext();
-        camelContext.addRoutePolicyFactory(new MetricsRoutePolicyFactory());
-        camelContext.addRoutes(new RouteBuilder() {
-            @Override
-            public void configure() throws Exception {
-                from("jetty:http://localhost:8181/mytestservice").doTry().process(processor).doCatch(Throwable.class)
-                    .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
-                    .setBody(constant("{\"error\" : \"Service failed\"}"))
-                    .end();
-            }
-        });
+    @Inject
+    VarianceProcessor processor;
 
-        camelContext.start();
-
-        final Object lock = new Object();
-        while (true) {
-            synchronized (lock) {
-                try {
-                    lock.wait();
-                } catch (InterruptedException e) {
-                    // ignore
-                }
-            }
-        }
+    @Override
+    public void configure() throws Exception {
+        from("jetty:http://localhost:8182/variance").doTry().process(processor).doCatch(Throwable.class)
+            .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
+            .setBody(constant("{\"error\" : \"Service failed\"}"))
+            .end();
     }
 }

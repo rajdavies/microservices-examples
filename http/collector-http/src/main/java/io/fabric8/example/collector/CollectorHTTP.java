@@ -13,25 +13,21 @@
  * implied.  See the License for the specific language governing
  * permissions and limitations under the License.
  */
-package io.fabric8.example.stddev.http;
+package io.fabric8.example.collector;
 
-import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
 
 import javax.inject.Inject;
 
-@ContextName("stddevCamel")
-public class StdDevHTTP extends RouteBuilder {
+@ContextName("collectorCamel")
+public class CollectorHTTP extends RouteBuilder {
 
     @Inject
-    StdDevProcessor processor;
+    CollectorProcessor processor;
 
     @Override
     public void configure() throws Exception {
-        from("jetty:http://localhost:8183/std-dev").doTry().process(processor).doCatch(Throwable.class)
-            .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
-            .setBody(constant("{\"error\" : \"Service failed\"}"))
-            .end();
+        from("jetty:http://localhost:8184/collector").process(processor).to("metrics:meter:name.not.used").to("log:metrics");
     }
 }

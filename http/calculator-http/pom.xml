@@ -27,7 +27,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>calculator-http</artifactId>
+    <artifactId>calculator</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -36,36 +36,30 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <version.maven-surefire-plugin>2.15</version.maven-surefire-plugin>
 
-        <!-- versions for use in mvn plugins as we cannot inherit them from a BOM -->
-        <fabric8.version>2.2.46</fabric8.version>
-        <docker.maven.plugin.version>0.13.5</docker.maven.plugin.version>
+        <docker.maven.plugin.version>0.13.6</docker.maven.plugin.version>
 
         <!-- Docker & Fabric8 Configs -->
         <docker.from>fabric8/java-jboss-openjdk8-jdk:latest</docker.from>
-        <docker.env.MAIN>io.fabric8.example.calculator.http.CalculatorHTTP</docker.env.MAIN>
+        <fabric8.dockerUser>fabric8/</fabric8.dockerUser>
+        <docker.image>${fabric8.dockerUser}${project.artifactId}:${project.version}</docker.image>
+        <docker.port.container.jolokia>8778</docker.port.container.jolokia>
+        <docker.port.container.http>8080</docker.port.container.http>
 
+        <fabric8.service.name>calculator</fabric8.service.name>
         <fabric8.service.port>${calculator.http.service.port}</fabric8.service.port>
         <fabric8.service.containerPort>${calculator.http.container.port}</fabric8.service.containerPort>
-        <fabric8.service.type>LoadBalancer</fabric8.service.type>
 
-        <fabric8.dockerPrefix>docker.io/</fabric8.dockerPrefix>
-        <fabric8.dockerUser>fabric8/</fabric8.dockerUser>
-        <docker.image>${fabric8.dockerPrefix}${fabric8.dockerUser}${project.artifactId}:${project.version}
-        </docker.image>
-        <docker.port.container.jolokia>8778</docker.port.container.jolokia>
+        <!-- Start Prometheus metrics stuff. -->
+        <fabric8.metrics.scrape>true</fabric8.metrics.scrape>
+        <fabric8.metrics.port>9779</fabric8.metrics.port>
+        <!-- End Prometheus metrics stuff -->
 
-
-        <fabric8.label.component>CALCULATORHTTP</fabric8.label.component>
-        <fabric8.label.group>fabric8.examples</fabric8.label.group>
-        <fabric8.label.provider>fabric8</fabric8.label.provider>
-
-
+        <fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>true</fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>
         <fabric8.label.component>${project.artifactId}</fabric8.label.component>
         <fabric8.label.container>java</fabric8.label.container>
-        <fabric8.label.group>quickstarts</fabric8.label.group>
-        <fabric8.iconRef>java</fabric8.iconRef>
+        <fabric8.label.group>examples</fabric8.label.group>
+        <fabric8.iconRef>camel</fabric8.iconRef>
     </properties>
 
     <dependencyManagement>
@@ -81,34 +75,69 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>fabric8-cdi</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-core</artifactId>
             <version>${camel.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-http</artifactId>
-            <version>${camel.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-metrics</artifactId>
             <version>${camel.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-cdi</artifactId>
+            <version>${camel.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-netty4-http</artifactId>
+            <version>${camel.version}</version>
+        </dependency>
+
+        <!-- cdi api -->
+        <dependency>
+            <groupId>javax.enterprise</groupId>
+            <artifactId>cdi-api</artifactId>
+            <version>1.2</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- need to use a CDI container such as JBoss Weld -->
+        <!-- lets use weld for CDI -->
+        <dependency>
+            <groupId>org.jboss.weld.se</groupId>
+            <artifactId>weld-se</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.weld</groupId>
+            <artifactId>weld-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.deltaspike.cdictrl</groupId>
+            <artifactId>deltaspike-cdictrl-weld</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
-            <version>3.5</version>
+            <version>${commons.math.verion}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
@@ -117,21 +146,33 @@
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
         </dependency>
+
+        <!-- testing -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-test</artifactId>
-            <version>${camel.version}</version>
+            <groupId>org.jboss.arquillian.junit</groupId>
+            <artifactId>arquillian-junit-container</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>fabric8-arquillian</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.shrinkwrap.resolver</groupId>
+            <artifactId>shrinkwrap-resolver-impl-maven</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
+
     <build>
-        <defaultGoal>install</defaultGoal>
+        <finalName>${project.artifactId}</finalName>
 
         <plugins>
             <!-- Compiler plugin enforces Java 1.7 compatibility and activates annotation processors -->
@@ -144,10 +185,14 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>${version.maven-surefire-plugin}</version>
+                <version>2.18.1</version>
+                <inherited>true</inherited>
                 <configuration>
-                    <forkMode>perTest</forkMode>
+                    <excludes>
+                        <exclude>**/*KT.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 
@@ -174,22 +219,17 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>2.10</version>
+                <groupId>io.fabric8</groupId>
+                <artifactId>hawt-app-maven-plugin</artifactId>
+                <version>${fabric8.version}</version>
                 <executions>
                     <execution>
-                        <id>add-classpath</id>
-                        <phase>package</phase>
+                        <id>hawt-app</id>
                         <goals>
-                            <!--  create target/classpath for docker-maven-plugin's assembly to pick up  -->
-                            <goal>build-classpath</goal>
+                            <goal>build</goal>
                         </goals>
                         <configuration>
-                            <prefix>.</prefix>
-                            <pathSeparator>:</pathSeparator>
-                            <includeScope>runtime</includeScope>
-                            <outputFile>${project.build.directory}/classpath</outputFile>
+                            <javaMainClass>org.apache.camel.cdi.Main</javaMainClass>
                         </configuration>
                     </execution>
                 </executions>
@@ -206,62 +246,67 @@
                             <build>
                                 <from>${docker.from}</from>
                                 <assembly>
-                                    <basedir>/app</basedir>
-                                    <descriptorRef>artifact-with-dependencies</descriptorRef>
+                                    <basedir>/deployments</basedir>
+                                    <descriptorRef>hawt-app</descriptorRef>
                                 </assembly>
                                 <env>
-                                    <JAVA_APP_JAR>${project.build.finalName}.jar</JAVA_APP_JAR>
-                                    <JAVA_MAIN_CLASS>io.fabric8.example.calculator.http.CalculatorHTTP</JAVA_MAIN_CLASS>
+                                    <JAVA_LIB_DIR>/deployments/lib</JAVA_LIB_DIR>
+                                    <JAVA_MAIN_CLASS>io.fabric8.example.calculator.http.Main</JAVA_MAIN_CLASS>
                                 </env>
                             </build>
                         </image>
                     </images>
                 </configuration>
             </plugin>
+
+            <!-- allows the route to be ran via 'mvn exec:java' -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.4.0</version>
+                <configuration>
+                    <mainClass>io.fabric8.example.calculator.http.Main</mainClass>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 
+    <!--
+    Default sample commands:
+
+    mvn -Pf8-build         ... build Docker images and create OpenShift deployment configs
+    mvn -Pf8-deploy        ... f8-build + push to Docker registry + applying deployment config to OpenShift
+    mvn -Pf8-local-deploy ... deployment for a single node setup without pushing to a registry
+
+    For individual goal usage please consult the fabric8 documentation
+    -->
     <profiles>
         <profile>
-            <id>docker-build</id>
+            <id>f8-build</id>
             <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.jolokia</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <version>${docker.maven.plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                                <phase>package</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
+                <defaultGoal>clean install docker:build fabric8:json</defaultGoal>
             </build>
         </profile>
         <profile>
-            <id>docker-push</id>
+            <id>f8-deploy</id>
+            <properties>
+                <fabric8.imagePullPolicySnapshot>Always</fabric8.imagePullPolicySnapshot>
+                <fabric8.recreate>true</fabric8.recreate>
+            </properties>
             <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.jolokia</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <version>${docker.maven.plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>build</goal>
-                                    <goal>push</goal>
-                                </goals>
-                                <phase>package</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
+                <defaultGoal>clean install docker:build docker:push fabric8:json fabric8:apply</defaultGoal>
+            </build>
+        </profile>
+        <profile>
+            <id>f8-local-deploy</id>
+            <properties>
+                <fabric8.recreate>true</fabric8.recreate>
+            </properties>
+            <build>
+                <defaultGoal>clean install docker:build fabric8:json fabric8:apply</defaultGoal>
             </build>
         </profile>
     </profiles>
+
 </project>
