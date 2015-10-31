@@ -39,7 +39,6 @@ public class StdDevProcessor implements Processor {
             summaryStatistics.addValue(value);
         }
         String stdDev = Double.toString(summaryStatistics.getStandardDeviation());
-        System.err.println("STDEVB = " + stdDev);
         exchange.getOut().setBody(stdDev);
     }
 }

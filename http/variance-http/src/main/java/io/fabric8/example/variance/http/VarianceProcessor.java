@@ -38,7 +38,6 @@ public class VarianceProcessor implements Processor {
             summaryStatistics.addValue(value);
         }
         String variance = Double.toString(summaryStatistics.getVariance());
-        System.err.println("Variance = " + variance);
         exchange.getOut().setBody(variance);
     }
 }

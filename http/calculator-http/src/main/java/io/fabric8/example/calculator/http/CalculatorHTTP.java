@@ -36,30 +36,22 @@ import java.util.concurrent.Executors;
 @ContextName("Calculator")
 public class CalculatorHTTP extends RouteBuilder implements Runnable {
 
-    @Inject
-    @Uri("netty4-http:http://{{service:collector:localhost:8184}}/collector")
-    private Endpoint collectorService;
-
-    @Inject
-    @Uri("netty4-http:http://{{service:variance:localhost:8182}}/variance")
-    private Endpoint varianceService;
-
-    @Inject
-    @Uri("netty4-http:http://{{service:std-dev:localhost:8183}}/std-dev")
-    private Endpoint stdDevService;
-
-    @Inject
-    @Uri("netty4-http:http://{{service:qs-cdi-camel-jetty:localhost:8080}}/camel/hello?keepAlive=false&disconnect=true")
-    private Endpoint httpEndpoint;
-
     public static final int NUMBER_OF_ENTRIES = 2;
+    @Inject
+    @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/collector")
+    private Endpoint collectorService;
+    @Inject
+    @Uri("netty4-http:http://{{service:variance-http:localhost:8182}}/variance")
+    private Endpoint varianceService;
+    @Inject
+    @Uri("netty4-http:http://{{service:std-dev-http:localhost:8183}}/std-dev")
+    private Endpoint stdDevService;
     private Executor executor = Executors.newSingleThreadExecutor();
 
     public void run() {
 
         try {
             System.err.println("RUNNING");
-            System.err.println(" httpEndpoint " + httpEndpoint);
             System.err.println(" STD_DEV " + stdDevService);
             System.err.println(" VARIANCE " + varianceService);
             System.err.println(" COLLECTOR " + collectorService);
@@ -101,8 +93,9 @@ public class CalculatorHTTP extends RouteBuilder implements Runnable {
         onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
         from("direct:start")
             .multicast()
-            .parallelProcessing().timeout(500).to(stdDevService, varianceService)
-            .end().setBody(body().append("HTTP FINISHED")).to(collectorService);
+            .parallelProcessing().timeout(10000).to(stdDevService, varianceService)
+            .to("log:results?showAll=true&multiline=true")
+            .end().setHeader("name", constant("HTTP")).to(collectorService);
     }
 
     private void sleep(int time) {

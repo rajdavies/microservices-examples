@@ -13,12 +13,9 @@
  * implied.  See the License for the specific language governing
  * permissions and limitations under the License.
  */
-package io.fabric8.example.calculator.msg;
+package io.fabric8.example.test.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.fabric8.annotations.ServiceName;
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.apache.activemq.jms.pool.PooledConnectionFactory;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -26,7 +23,6 @@ import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
 import org.apache.camel.cdi.Uri;
-import org.apache.camel.component.jms.JmsComponent;
 import org.apache.camel.component.metrics.routepolicy.MetricsRoutePolicyFactory;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
@@ -38,21 +34,21 @@ import java.util.concurrent.Executors;
 
 @ApplicationScoped
 @ContextName("Calculator")
-public class CalculatorMsg extends RouteBuilder implements Runnable {
+public class TestHTTP extends RouteBuilder implements Runnable {
 
     public static final int NUMBER_OF_ENTRIES = 2;
-    @Inject
-    @ServiceName("fabric8mq")
-    String msgURI;
     @Inject
     @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/collector")
     private Endpoint collectorService;
     @Inject
-    @Uri("jms:variance?exchangePattern=InOut&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10&useMessageIDAsCorrelationID=true")
+    @Uri("netty4-http:http://{{service:variance-http:localhost:8182}}/variance")
     private Endpoint varianceService;
     @Inject
-    @Uri("jms:std-dev?exchangePattern=InOut&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10&useMessageIDAsCorrelationID=true")
+    @Uri("netty4-http:http://{{service:std-dev-http:localhost:8183}}/std-dev")
     private Endpoint stdDevService;
+    @Inject
+    @Uri("netty4-http:http://{{service:qs-cdi-camel-jetty:localhost:8080}}/camel/hello?keepAlive=false&disconnect=true")
+    private Endpoint httpEndpoint;
     private Executor executor = Executors.newSingleThreadExecutor();
 
     public void run() {
@@ -62,6 +58,7 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
             System.err.println(" STD_DEV " + stdDevService);
             System.err.println(" VARIANCE " + varianceService);
             System.err.println(" COLLECTOR " + collectorService);
+            System.err.println(" HTTP " + httpEndpoint);
 
             getContext().addRoutePolicyFactory(new MetricsRoutePolicyFactory());
             ProducerTemplate producerTemplate = getContext().createProducerTemplate();
@@ -76,12 +73,16 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
                         array[i] = rg.nextDouble();
                     }
                     final String body = objectMapper.writeValueAsString(array);
+                    System.err.println("SEnding ...");
                     Exchange exchange = producerTemplate.send("direct:start", new Processor() {
                         @Override
                         public void process(Exchange exchange) throws Exception {
+                            exchange.getIn().setHeader(Exchange.HTTP_METHOD, "POST");
                             exchange.getIn().setBody(body);
                         }
                     });
+                    System.err.println("SENT");
+                    sleep(2000);
 
                 } catch (Throwable e) {
                     e.printStackTrace();
@@ -96,18 +97,11 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
 
     @Override
     public void configure() throws Exception {
-        PooledConnectionFactory connectionFactory = new PooledConnectionFactory();
-        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory(msgURI));
-
-        JmsComponent jms = (JmsComponent) getContext().getComponent("jms");
-        jms.getConfiguration().setConnectionFactory(connectionFactory);
-
-
         onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
         from("direct:start")
-            .multicast()
-            .parallelProcessing().timeout(500).to(stdDevService, varianceService)
-            .end().setBody(body().append("MSG")).to(collectorService);
+            .to(stdDevService)
+            .to("log:results?showAll=true&multiline=true");
+
     }
 
     private void sleep(int time) {
@@ -118,5 +112,3 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
         }
     }
 }
-
-

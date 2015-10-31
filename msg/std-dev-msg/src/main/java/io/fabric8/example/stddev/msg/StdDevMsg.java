@@ -15,8 +15,12 @@
  */
 package io.fabric8.example.stddev.msg;
 
+import io.fabric8.annotations.ServiceName;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.jms.pool.PooledConnectionFactory;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
+import org.apache.camel.component.jms.JmsComponent;
 
 import javax.inject.Inject;
 
@@ -26,9 +30,20 @@ public class StdDevMsg extends RouteBuilder {
     @Inject
     StdDevProcessor processor;
 
+    @Inject
+    @ServiceName("fabric8mq")
+    String msgURI;
+
     @Override
     public void configure() throws Exception {
+
+        PooledConnectionFactory connectionFactory = new PooledConnectionFactory();
+        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory(msgURI));
+
+        getContext().addComponent("jms",
+                                     JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
+
         onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
-        from("amq:std-dev").process(processor);
+        from("jms:std-dev").process(processor);
     }
 }

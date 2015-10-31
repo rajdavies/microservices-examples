@@ -28,6 +28,12 @@ public class CollectorHTTP extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        from("jetty:http://localhost:8184/collector").process(processor).to("metrics:meter:name.not.used").to("log:metrics");
+        from("jetty:http://0.0.0.0:8184/collector")
+            .to("log:collector?level=DEBUG&groupInterval=10000&groupDelay=60000&groupActiveOnly=false")
+            .choice()
+            .when(header("name").contains("MSG"))
+            .to("metrics:meter:msg")
+            .otherwise()
+            .to("metrics:meter:http");
     }
 }

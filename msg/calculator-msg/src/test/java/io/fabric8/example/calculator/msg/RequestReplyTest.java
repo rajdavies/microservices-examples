@@ -16,6 +16,8 @@
 package io.fabric8.example.calculator.msg;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.camel.component.ActiveMQComponent;
+import org.apache.activemq.jms.pool.PooledConnectionFactory;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -29,7 +31,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.jms.ConnectionFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RequestReplyTest {
 
@@ -38,9 +40,10 @@ public class RequestReplyTest {
     @Test
     public void theTest() throws Exception{
 
-        ConnectionFactory connectionFactory = new ActiveMQConnectionFactory("failover:(tcp://localhost:61616)");
+        PooledConnectionFactory connectionFactory = new PooledConnectionFactory();
+        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory("failover:(tcp://localhost:61616)"));
 
-
+        final AtomicInteger counter = new AtomicInteger();
         CamelContext serviceContext = new DefaultCamelContext();
         serviceContext.addComponent("jms",
                                 JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
@@ -52,9 +55,8 @@ public class RequestReplyTest {
                 RandomGenerator rg = new JDKRandomGenerator();
                 int num = rg.nextInt();
                 from("jms:myQueue.queue")
-                    .setHeader("JMSMessageID", constant("ID : " + num))
-                    .setHeader("JMSReplyTo",
-                                  constant("myQueue.queue"))
+                    // .setHeader("JMSMessageID", constant("ID : " + num))
+                    //  .setHeader("JMSReplyTo", constant("myQueue.queue"))
                     .process(new Processor() {
                         @Override
                         public void process(Exchange exchange) throws Exception {
@@ -63,8 +65,7 @@ public class RequestReplyTest {
                              * Process data and get the response and set the resposen to the Exchage
                              * body.
                              */
-                            exchange.getOut().setBody(body +
-                                                          "OMG!; ID : " + exchange.getExchangeId());
+                            exchange.getOut().setBody("RESPONSE " + counter.incrementAndGet());
                         }
                     });
             }
@@ -74,19 +75,21 @@ public class RequestReplyTest {
 
         CamelContext requestorContext = new DefaultCamelContext();
         requestorContext.addComponent("jms",
-                                         JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
+                                         ActiveMQComponent.jmsComponentAutoAcknowledge(connectionFactory));
 
         requestorContext.start();
 
         ProducerTemplate producerTemplate = requestorContext.createProducerTemplate();
-        Object response = producerTemplate
-                              .requestBodyAndHeader(
-                                                       "jms:myQueue.queue?exchangePattern=InOut&requestTimeout=40000&timeToLive=40000"
-                                                           + "&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10"
-                                                           + "&useMessageIDAsCorrelationID=true",
-                                                       "mBodyMsg", "HeaderString", "HeaderValue");
+        for (int i = 0; i < 1000; i++) {
+            Object response = producerTemplate
+                                  .requestBodyAndHeader(
+                                                           "jms:myQueue.queue?exchangePattern=InOut&requestTimeout=40000&timeToLive=40000"
+                                                               + "&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10"
+                                                               + "&useMessageIDAsCorrelationID=true",
+                                                           "mBodyMsg", "HeaderString", "HeaderValue");
 
-        System.err.println("RESPONSE = " + response);
+            System.err.println("RESPONSE = " + response);
+        }
 
         requestorContext.stop();
         serviceContext.stop();

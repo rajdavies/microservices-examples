@@ -27,25 +27,28 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>collector</artifactId>
+    <artifactId>collector-http</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Fabric8 :: Examples :: statistics collector</name>
-    <description>Collects invocations from calculations</description>
+    <name>Fabric8 :: Examples:: CDI :: Camel with Jetty as HTTP server</name>
+    <description>Camel route that collects results from a calculator</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- the version of the BOM, defining all the dependency versions -->
+        <fabric8.version>2.2.56</fabric8.version>
+        <docker.maven.plugin.version>0.13.6</docker.maven.plugin.version>
 
         <!-- Docker & Fabric8 Configs -->
-        <docker.from>fabric8/java-jboss-openjdk8-jdk:latest</docker.from>
+        <docker.from>fabric8/s2i-java:1.1.6</docker.from>
         <fabric8.dockerUser>fabric8/</fabric8.dockerUser>
         <docker.image>${fabric8.dockerUser}${project.artifactId}:${project.version}</docker.image>
         <docker.port.container.jolokia>8778</docker.port.container.jolokia>
         <docker.port.container.http>8080</docker.port.container.http>
 
-        <fabric8.service.name>collector</fabric8.service.name>
+        <fabric8.service.name>${project.artifactId}</fabric8.service.name>
         <fabric8.service.port>${collector.http.service.port}</fabric8.service.port>
         <fabric8.service.containerPort>${collector.http.container.port}</fabric8.service.containerPort>
 
@@ -54,10 +57,10 @@
         <fabric8.metrics.port>9779</fabric8.metrics.port>
         <!-- End Prometheus metrics stuff -->
 
-        <fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>true</fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>
+        <!-- fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>true</fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT -->
         <fabric8.label.component>${project.artifactId}</fabric8.label.component>
         <fabric8.label.container>java</fabric8.label.container>
-        <fabric8.label.group>quickstarts</fabric8.label.group>
+        <fabric8.label.group>examples</fabric8.label.group>
         <fabric8.iconRef>camel</fabric8.iconRef>
     </properties>
 
@@ -78,34 +81,16 @@
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-core</artifactId>
-            <version>${camel.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-cdi</artifactId>
-            <version>${camel.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-jetty</artifactId>
-            <version>${camel.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-metrics</artifactId>
-            <version>${camel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-            <version>${commons.math.verion}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <!-- cdi api -->
@@ -132,6 +117,21 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-metrics</artifactId>
+            <version>${camel.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>${commons.math.verion}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
         </dependency>
@@ -147,6 +147,14 @@
             <version>${camel.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>fabric8-cdi</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+        </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -272,14 +280,14 @@
     </build>
 
     <!--
-    Default sample commands:
+  Default sample commands:
 
-    mvn -Pf8-build         ... build Docker images and create OpenShift deployment configs
-    mvn -Pf8-deploy        ... f8-build + push to Docker registry + applying deployment config to OpenShift
-    mvn -Pf8-local-deploy ... deployment for a single node setup without pushing to a registry
+  mvn -Pf8-build         ... build Docker images and create OpenShift deployment configs
+  mvn -Pf8-deploy        ... f8-build + push to Docker registry + applying deployment config to OpenShift
+  mvn -Pf8-local-deploy ... deployment for a single node setup without pushing to a registry
 
-    For individual goal usage please consult the fabric8 documentation
-    -->
+  For individual goal usage please consult the fabric8 documentation
+  -->
     <profiles>
         <profile>
             <id>f8-build</id>
@@ -307,4 +315,5 @@
             </build>
         </profile>
     </profiles>
+
 </project>

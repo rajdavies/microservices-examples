@@ -29,7 +29,9 @@ public class StdDevHTTP extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        from("jetty:http://localhost:8183/std-dev").doTry().process(processor).doCatch(Throwable.class)
+        from("jetty:http://0.0.0.0:8183/std-dev").doTry()
+            .process(processor)
+            .doCatch(Throwable.class)
             .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(500))
             .setBody(constant("{\"error\" : \"Service failed\"}"))
             .end();

@@ -25,7 +25,6 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.fabric8.microservices.examples</groupId>
     <artifactId>http</artifactId>
     <packaging>pom</packaging>
 
@@ -39,6 +38,7 @@
         <module>collector-http</module>
         <module>std-dev-http</module>
         <module>variance-http</module>
+        <module>test-http</module>
     </modules>
 
     <build>
