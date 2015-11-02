@@ -16,59 +16,54 @@
 package io.fabric8.example.calculator.msg;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.fabric8.annotations.ServiceName;
+import io.fabric8.example.common.msg.Variables;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.jms.pool.PooledConnectionFactory;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
 import org.apache.camel.cdi.Uri;
 import org.apache.camel.component.jms.JmsComponent;
 import org.apache.camel.component.metrics.routepolicy.MetricsRoutePolicyFactory;
+import org.apache.camel.processor.aggregate.AggregationStrategy;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 @ApplicationScoped
 @ContextName("Calculator")
 public class CalculatorMsg extends RouteBuilder implements Runnable {
 
-    public static final int NUMBER_OF_ENTRIES = 2;
     @Inject
-    @ServiceName("fabric8mq")
-    String msgURI;
-    @Inject
-    @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/collector")
+    @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/results/msg")
     private Endpoint collectorService;
-    @Inject
-    @Uri("jms:variance?exchangePattern=InOut&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10&useMessageIDAsCorrelationID=true")
-    private Endpoint varianceService;
-    @Inject
-    @Uri("jms:std-dev?exchangePattern=InOut&asyncConsumer=true&asyncStartListener=true&concurrentConsumers=10&useMessageIDAsCorrelationID=true")
-    private Endpoint stdDevService;
-    private Executor executor = Executors.newSingleThreadExecutor();
 
     public void run() {
 
         try {
             System.err.println("RUNNING");
-            System.err.println(" STD_DEV " + stdDevService);
-            System.err.println(" VARIANCE " + varianceService);
-            System.err.println(" COLLECTOR " + collectorService);
+            System.err.println("AMQBROKER = " + Variables.MSG_URL);
+            System.err.println(" COLLECTOR = " + collectorService);
 
             getContext().addRoutePolicyFactory(new MetricsRoutePolicyFactory());
             ProducerTemplate producerTemplate = getContext().createProducerTemplate();
 
             RandomGenerator rg = new JDKRandomGenerator();
-            double[] array = new double[NUMBER_OF_ENTRIES];
+            double[] array = new double[Variables.NUMBER_OF_ENTRIES];
             ObjectMapper objectMapper = new ObjectMapper();
+
+            Endpoint jmsSender = getContext().getEndpoint("jms:topic:"
+                                                              + Variables.CALCULATION_TOPIC
+                                                              + "?preserveMessageQos=true"
+                                                              + "&replyTo=" + Variables.RESULT_QUEUE
+                                                              +"&replyToType=Exclusive"
+                                                              + "&asyncConsumer=true"
+                                                              + "&asyncStartListener=true"
+                                                              + "&concurrentConsumers=10");
 
             while (true) {
                 try {
@@ -76,12 +71,7 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
                         array[i] = rg.nextDouble();
                     }
                     final String body = objectMapper.writeValueAsString(array);
-                    Exchange exchange = producerTemplate.send("direct:start", new Processor() {
-                        @Override
-                        public void process(Exchange exchange) throws Exception {
-                            exchange.getIn().setBody(body);
-                        }
-                    });
+                    producerTemplate.sendBody(jmsSender, body);
 
                 } catch (Throwable e) {
                     e.printStackTrace();
@@ -97,17 +87,26 @@ public class CalculatorMsg extends RouteBuilder implements Runnable {
     @Override
     public void configure() throws Exception {
         PooledConnectionFactory connectionFactory = new PooledConnectionFactory();
-        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory(msgURI));
+        String msgURI = Variables.MSG_URL;
+        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory("failover:(" + msgURI + ")"));
 
         JmsComponent jms = (JmsComponent) getContext().getComponent("jms");
         jms.getConfiguration().setConnectionFactory(connectionFactory);
 
+        from("jms:queue:"+Variables.RESULT_QUEUE).aggregate(header(Variables.CORRELATION_HEADER), new AggregationStrategy() {
+            @Override
+            public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
+                if (oldExchange == null) {
+                    return newExchange;
+                }
 
-        onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
-        from("direct:start")
-            .multicast()
-            .parallelProcessing().timeout(500).to(stdDevService, varianceService)
-            .end().setBody(body().append("MSG")).to(collectorService);
+                String oldBody = oldExchange.getIn().getBody(String.class);
+                String newBody = newExchange.getIn().getBody(String.class);
+                oldExchange.getIn().setBody(oldBody + "+" + newBody);
+                return oldExchange;
+            }
+        }).completionSize(Variables.NUMBER_OF_SERVICES).completionTimeout(2000)
+            .setHeader("name", constant("MSG")).to(collectorService);
     }
 
     private void sleep(int time) {

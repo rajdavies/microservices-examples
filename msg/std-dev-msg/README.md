@@ -1,1 +1,1 @@
-# Needs to run with calculator-amqp, variance-amqp and collector-http
+# Needs to run with calculator-msg, variance-msg and collector-http

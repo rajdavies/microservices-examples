@@ -35,9 +35,11 @@
     </properties>
 
     <modules>
+        <module>common</module>
         <module>calculator-msg</module>
         <module>std-dev-msg</module>
         <module>variance-msg</module>
+        <module>test-msg</module>
     </modules>
 
     <build>

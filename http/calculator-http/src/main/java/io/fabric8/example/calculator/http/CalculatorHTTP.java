@@ -36,9 +36,9 @@ import java.util.concurrent.Executors;
 @ContextName("Calculator")
 public class CalculatorHTTP extends RouteBuilder implements Runnable {
 
-    public static final int NUMBER_OF_ENTRIES = 2;
+    static final int NUMBER_OF_ENTRIES = 100;
     @Inject
-    @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/collector")
+    @Uri("netty4-http:http://{{service:collector-http:localhost:8184}}/results/http")
     private Endpoint collectorService;
     @Inject
     @Uri("netty4-http:http://{{service:variance-http:localhost:8182}}/variance")

@@ -1,1 +1,1 @@
-# Needs to run with calculator-amqp, std-dev-amqp and collector-http
+# Needs to run with calculator-msg, std-dev-msg and collector-http

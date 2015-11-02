@@ -15,37 +15,31 @@
  */
 package io.fabric8.example.variance.msg;
 
-import io.fabric8.annotations.ServiceName;
+import io.fabric8.example.common.msg.Variables;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.jms.pool.PooledConnectionFactory;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
 import org.apache.camel.component.jms.JmsComponent;
 
-import javax.inject.Inject;
-
 @ContextName("varianceCamel")
 public class VarianceMsg extends RouteBuilder {
 
-    @Inject
     VarianceProcessor processor;
-
-    @Inject
-    @ServiceName("fabric8mq")
-    String msgURI;
-
 
 
     @Override
     public void configure() throws Exception {
-
+        String msgURI = Variables.MSG_URL;
+        System.err.println("MESSAGING IS " + msgURI);
         PooledConnectionFactory connectionFactory = new PooledConnectionFactory();
-        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory(msgURI));
+        connectionFactory.setConnectionFactory(new ActiveMQConnectionFactory("failover:(" + msgURI + ")"));
+
+        processor = new VarianceProcessor(getContext().createProducerTemplate());
 
         getContext().addComponent("jms",
                                      JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
 
-        onException(Throwable.class).maximumRedeliveries(-1).delay(5000);
-        from("jms:variance").process(processor).to("log:output");
+        from("jms:topic:" + Variables.CALCULATION_TOPIC).process(processor);
     }
 }

@@ -17,23 +17,17 @@ package io.fabric8.example.collector;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.cdi.ContextName;
-
-import javax.inject.Inject;
+import org.apache.camel.component.metrics.routepolicy.MetricsRoutePolicyFactory;
 
 @ContextName("collectorCamel")
 public class CollectorHTTP extends RouteBuilder {
 
-    @Inject
-    CollectorProcessor processor;
-
     @Override
     public void configure() throws Exception {
-        from("jetty:http://0.0.0.0:8184/collector")
-            .to("log:collector?level=DEBUG&groupInterval=10000&groupDelay=60000&groupActiveOnly=false")
-            .choice()
-            .when(header("name").contains("MSG"))
-            .to("metrics:meter:msg")
-            .otherwise()
-            .to("metrics:meter:http");
+        getContext().addRoutePolicyFactory(new MetricsRoutePolicyFactory());
+        from("jetty:http://0.0.0.0:8184/results/http")
+            .to("log:http?level=DEBUG&groupInterval=10000&groupDelay=60000&groupActiveOnly=false").setId("HTTP");
+        from("jetty:http://0.0.0.0:8184/results/msg")
+            .to("log:msg?level=DEBUG&groupInterval=10000&groupDelay=60000&groupActiveOnly=false").setId("MSG");
     }
 }
