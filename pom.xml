@@ -97,6 +97,7 @@
         <maven.require.version>3.1.1</maven.require.version>
         <maven.enforcer.plugin.version>1.4</maven.enforcer.plugin.version>
         <camel.hysterix.version>1.0.2</camel.hysterix.version>
+        <qpid.jms.client.version>0.6.0</qpid.jms.client.version>
 
         <camel.version>2.16.0</camel.version>
         <commons.math.verion>3.5</commons.math.verion>
@@ -105,6 +106,10 @@
 
         <activemq.container.port>6194</activemq.container.port>
         <activemq.service.port>6163</activemq.service.port>
+
+        <msa.msg.container.port>6154</msa.msg.container.port>
+        <msa.msg.service.port>6133</msa.msg.service.port>
+
         <amqbroker.container.port>7162</amqbroker.container.port>
         <amqbroker.service.port>7163</amqbroker.service.port>
 
